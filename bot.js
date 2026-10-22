@@ -6,7 +6,7 @@ import pino from 'pino';
 import QRCode from 'qrcode';
 import fs from 'fs';
 import path from 'path';
-import { searchCyberRepos, formatPost, filterNew } from './cyber.js';
+import { searchCyberRepos, formatPosts, filterNew } from './cyber.js';
 
 const DATA_DIR = process.env.DATA_DIR || '.';
 const AUTH_DIR = path.join(DATA_DIR, 'sessions');
@@ -51,17 +51,23 @@ export async function postToChannel(text) {
   return jid;
 }
 
-// Scheduled job: search GitHub + post fresh repos to the channel
+// Scheduled job: GitHub sweep + jitne fresh mile, sab channel me post
 export async function runCyberPost() {
-  const repos = await searchCyberRepos(7, 8);
+  const repos = await searchCyberRepos(7, 10);
   const fresh = filterNew(repos);
   if (!fresh.length) {
     console.log('[bot] cyber post: nothing new');
     return { posted: 0 };
   }
-  const jid = await postToChannel(formatPost(fresh));
-  console.log(`[bot] cyber post: ${fresh.length} repos -> ${jid}`);
-  return { posted: fresh.length, jid };
+  const jid = channelJidCache || await resolveChannelJid();
+  if (!jid) throw new Error('CHANNEL_INVITE not set or could not resolve');
+  const posts = formatPosts(fresh, 8);
+  for (const p of posts) {
+    await sock.sendMessage(jid, { text: p });
+    await new Promise(r => setTimeout(r, 1500)); // flood se bachne ke liye gap
+  }
+  console.log(`[bot] cyber post: ${fresh.length} repos in ${posts.length} msgs -> ${jid}`);
+  return { posted: fresh.length, messages: posts.length, jid };
 }
 
 async function connect() {
@@ -109,7 +115,9 @@ async function connect() {
           await reply(`🤖 *${BOT_NAME}*\n\n.ping — check alive\n.cyber — fresh cybersecurity repos now\n.postnow — post scheduled update now`);
         else if (cmd === 'cyber') {
           const repos = await searchCyberRepos(7, 5);
-          await reply(formatPost(filterNew(repos)) || 'Nothing new right now.');
+          const fresh = filterNew(repos);
+          const posts = formatPosts(fresh, 8);
+          await reply(posts[0] || 'Nothing new right now.');
         }
         else if (cmd === 'postnow') {
           const r = await runCyberPost();
