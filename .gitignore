@@ -1,0 +1,6 @@
+node_modules/
+sessions/
+.env
+posted.json
+channel_jid.txt
+*.log
