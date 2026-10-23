@@ -7,6 +7,27 @@ import QRCode from 'qrcode';
 import fs from 'fs';
 import path from 'path';
 import { searchCyberRepos, formatPosts, filterNew } from './cyber.js';
+import { handleGame, GAME_LIST } from './games.js';
+
+const MENU_IMG = ['assets/menu.png', 'menu.png'].map(p => path.join(DATA_DIR, p)).find(p => { try { return fs.statSync(p).isFile(); } catch { return false; } });
+function menuCard() {
+  return {
+    image: fs.readFileSync(MENU_IMG),
+    caption: '🤖 *XRIVET CYBER* — pura menu upar tasveer me hai. Game khelne ke liye command bhejo!',
+    contextInfo: {
+      forwardingScore: 999,
+      isForwarded: true,
+      externalAdReply: {
+        title: '⚡ XRIVET CYBER ⚡',
+        body: 'System Online • Games + Cyber Repos',
+        thumbnailUrl: 'https://xrivet-cyber-portal-k08m3ldc8.vercel.app/',
+        sourceUrl: 'https://xrivet-cyber-portal-k08m3ldc8.vercel.app/',
+        mediaType: 1,
+        renderLargerThumbnail: true,
+      },
+    },
+  };
+}
 
 const DATA_DIR = process.env.DATA_DIR || '.';
 const AUTH_DIR = path.join(DATA_DIR, 'sessions');
@@ -107,12 +128,18 @@ async function connect() {
       try {
         const text = msg.message?.conversation || msg.message?.extendedTextMessage?.text || '';
         if (!text.startsWith('.') || msg.key.fromMe) continue;
-        const [cmd] = text.slice(1).trim().split(/\s+/);
+        const [cmd, ...args] = text.slice(1).trim().split(/\s+/);
         const jid = msg.key.remoteJid;
         const reply = async (t) => sock.sendMessage(jid, { text: t }, { quoted: msg });
-        if (cmd === 'ping') await reply('🏓 pong — ' + BOT_NAME + ' online');
-        else if (cmd === 'help' || cmd === 'menu')
-          await reply(`🤖 *${BOT_NAME}*\n\n.ping — check alive\n.cyber — fresh cybersecurity repos now\n.postnow — post scheduled update now`);
+        const gameReply = handleGame(cmd, args);
+        if (gameReply) { await reply(gameReply); continue; }
+        if (cmd === 'ping') {
+          const t0 = Date.now();
+          await reply(`⚡ *${BOT_NAME} Ping* ⚡\n\n🛰️ ${(Date.now() - t0)} ms\n\nSystem Online ✅`);
+        }
+        else if (cmd === 'menu') { try { await sock.sendMessage(jid, menuCard(), { quoted: msg }); } catch { await reply('Menu image missing — .help likho'); } }
+        else if (cmd === 'help')
+          await reply(`🤖 *${BOT_NAME}*\n\n.ping — speed check\n.menu — fancy menu card\n.cyber — fresh cybersecurity repos now\n.postnow — post scheduled update now\n\n🎮 *GAMES*\n${GAME_LIST.map(g => g[0] + ' — ' + g[1]).join('\n')}`);
         else if (cmd === 'cyber') {
           const repos = await searchCyberRepos(7, 5);
           const fresh = filterNew(repos);
