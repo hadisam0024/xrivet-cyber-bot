@@ -9,10 +9,13 @@ import path from 'path';
 import { searchCyberRepos, formatPosts, filterNew } from './cyber.js';
 import { handleGame, GAME_LIST } from './games.js';
 
-const MENU_IMG = ['assets/menu.png', 'menu.png'].map(p => path.join(DATA_DIR, p)).find(p => { try { return fs.statSync(p).isFile(); } catch { return false; } });
+function resolveMenuImg() {
+  const cands = ['assets/menu.png', 'menu.png'].map(p => path.join(DATA_DIR, p));
+  return cands.find(p => { try { return fs.statSync(p).isFile(); } catch { return false; } });
+}
 function menuCard() {
   return {
-    image: fs.readFileSync(MENU_IMG),
+    image: fs.readFileSync(resolveMenuImg()),
     caption: '🤖 *XRIVET CYBER* — pura menu upar tasveer me hai. Game khelne ke liye command bhejo!',
     contextInfo: {
       forwardingScore: 999,
